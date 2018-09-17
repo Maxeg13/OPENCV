@@ -19,7 +19,7 @@ int max_thresh = 255;
 
 CV_WRAP static int fcc=VideoWriter::fourcc('D','I','V','X');
 
-static double angle(Point pt1, Point pt2, Point pt0)
+static double sinus(Point pt1, Point pt2, Point pt0)
 {
     double dx1 = pt1.x - pt0.x;
     double dy1 = pt1.y - pt0.y;
@@ -27,6 +27,8 @@ static double angle(Point pt1, Point pt2, Point pt0)
     double dy2 = pt2.y - pt0.y;
     return (dx1*dx2 + dy1*dy2)/sqrt((dx1*dx1 + dy1*dy1)*(dx2*dx2 + dy2*dy2) + 1e-10);
 }
+
+void checkNestRatio(vector<vector<Point>>& contours, vector<Vec4i>& hierarchy, int i, int* k);
 
 bool nested(vector<vector<Point>>& contours, vector<Vec4i>& hierarchy, int k[], int v[]);
 
@@ -84,8 +86,13 @@ int main(int argc, char *argv[])
     Mat video_mat;
     vector<Vec4i> hierarchy;
     vector<vector<Point> > contours;
+    //    int k=0;
+    //    if(k=(1==1))
+    //       true;
+    //    qDebug()<<k;
     for(;;) //Show the image captured in the window and repeat
     {
+
         float krec=1;
         cap >> src; // get a new frame from camera
         cvtColor(src,dst,CV_RGB2GRAY);
@@ -111,48 +118,26 @@ int main(int argc, char *argv[])
         for(int i=0;i<approx.size();i++)
         {
 
-            if (fabs(contourArea(approx[i])) < 200 || !isContourConvex(approx[i]) )
+            //            if (fabs(contourArea(approx[i])) < 200 || !isContourConvex(approx[i]) )
+            //                continue;
+            int k[3]={i,0,0};
+            int v[3]={4,4,4};
+
+
+            if(!nested(approx, hierarchy, k, v))
                 continue;
 
-            //            drawContours(src,approx,i,Scalar(clr[i%100][0], clr[i%100][1], clr[i%100][2]),1);
+
+                Rect r = boundingRect(approx[k[0]]);
+                drawContours(src,approx,k[0],Scalar(0,0,255), 2);
+                drawContours(src,approx,k[1],Scalar(255,0,0), 2);
+                //                drawContours(src,approx,k[2],Scalar(255,0,0), 2);
+
+                setLabel(src, "square" , approx[i]);
+                rectangle(src,r,Scalar(0,255,0));
 
 
-            //Point p;p.dot()
 
-            if(approx[i].size()==4)
-            {
-                int k=0;
-                double a1=angle(approx[i][k], approx[i][k+1], approx[i][k+2]);
-                k=2;
-                double a2=angle(approx[i][k], approx[i][k+1], approx[i][(k+2)%4]);
-                //                                qDebug()<<sl1->value()/50;
-
-                int hi=hierarchy[i][2];
-                if(fabs(a1-a2)<0.04)
-                {
-                    //                    for(int k=0;k<nested.size();k++)
-                    {
-                        if((hi>(-1)))
-                        {
-                            if(approx[hi].size()==4)
-
-                                if((contourArea(approx[i])/contourArea(approx[hi]))>1.1)
-                                {
-                                    Rect r = boundingRect(approx[i]);
-                                    drawContours(src,approx,i,Scalar(0,0,255), 3);
-                                    drawContours(src,approx,hi,Scalar(255,0,0), 2);
-
-                                    setLabel(src, "square" , approx[i]);
-                                    rectangle(src,r,Scalar(0,255,0));
-                                    //                                line(src, Point(0,0),(r[0]+r[2])/2.,Scalar(255,0,0));
-                                    //                                    qDebug()<<" "<<hierarchy[i][0]<<"\n"<<hierarchy[hi][1];
-                                    done=1;
-                                }
-                        }
-                    }
-                }
-
-            }
         }
 
         //        qDebug()<<contours.size();
@@ -191,15 +176,43 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata){
 
 
 
-bool nested(vector<vector<Point>>& contours, vector<Vec4i>& hierarchy, int k[], int v[])
+bool nested(vector<vector<Point>>& contours, vector<Vec4i>& hierarchy, int* k, int* v)
 {
-    if(k[1]=(hierarchy[k[0]][2]!=-1)&&contours[k[0]].size()==v[0])
-        if(k[2]=(hierarchy[k[1]][2]!=-1)&&contours[k[1]].size()==v[1])
-            if(contours[k[2]].size()==v[2])
-                if(isContourConvex(contours[k[0]]))
-                    if(isContourConvex(contours[k[1]]))
-                        if(isContourConvex(contours[k[2]]))
-                return true;
+    if(contours[k[0]].size()==v[0])
+        if(((k[1]=hierarchy[k[0]][2])!=-1))
+        {
+            //        int i=1;
 
-     return false;
+            checkNestRatio(contours,hierarchy,1,k);//k may be changed
+            if(contours[k[1]].size()==v[1])
+                if(((k[2]=hierarchy[k[1]][2])!=-1) )
+                {
+                    checkNestRatio(contours,hierarchy,2,k);//k may be changed
+                    if(k[2]!=1)
+                        return true;
+                }
+        }
+
+    return false;
+
 }
+
+
+
+//just pushes an indexes, nothing more
+void checkNestRatio(vector<vector<Point>>& contours, vector<Vec4i>& hierarchy, int i, int* k)
+{
+//    qDebug()<<contourArea(contours[k[i-1]]);
+//    qDebug()<<contourArea(contours[k[i]]);
+    if(contourArea(contours[k[i-1]])/contourArea(contours[k[i]])>1.06)
+    {
+
+    }
+    else
+    {
+        k[i]=hierarchy[k[i]][2];
+    }
+
+}
+
+
