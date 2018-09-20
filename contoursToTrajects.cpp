@@ -1,3 +1,7 @@
+//read about contours hierarchy.
+//calculated on the 3 contours images. canny leads to 3 additional contours
+//
+
 #include <QApplication>
 #include <iostream>
 #include <string>   // for strings
@@ -24,7 +28,13 @@ Point centrs[3];
 
 CV_WRAP static int fcc=VideoWriter::fourcc('D','I','V','X');
 
-
+float angle(Point p)
+{
+    float a=atan(p.y/(p.x+0.0000001234))*180/3.14;
+    if(p.x<0)
+        a-=180;
+    return(a);
+}
 static double sinus(Point pt1, Point pt2, Point pt0)
 {
     double dx1 = pt1.x - pt0.x;
@@ -105,7 +115,7 @@ int main(int argc, char *argv[])
     int cnt=0;
     for(;;) //Show the image captured in the window and repeat
     {
-//        qDebug()<<"hey";
+        //        qDebug()<<"hey";
         cnt=0;
         float krec=1;
         cap >> src; // get a new frame from camera
@@ -124,7 +134,7 @@ int main(int argc, char *argv[])
         approx.resize(contours.size());
         for(int i=0;i<contours.size();i++)
         {
-            approxPolyDP(Mat(contours[i]), approx[i], arcLength(Mat(contours[i]), true)*0.05, true);//.026
+            approxPolyDP(Mat(contours[i]), approx[i], arcLength(Mat(contours[i]), true)*0.07, true);//.026
         }
 
         for(int i=0;i<approx.size();i++)
@@ -138,6 +148,7 @@ int main(int argc, char *argv[])
             int v3[3]={4,3,3};
 
             bool squre_label, triangle_label1, triangle_label2;
+            //skip the seldom bad situation
             if(!(squre_label=nested(approx, hierarchy, k, v1))&&
                     !(triangle_label1=nested(approx, hierarchy, k, v2))&&
                     !(triangle_label2=nested(approx, hierarchy, k, v3)))
@@ -145,9 +156,9 @@ int main(int argc, char *argv[])
 
             cnt++;
             Rect r = boundingRect(approx[k[0]]);
-//            drawContours(src,approx,k[0],Scalar(0,0,255), 2);
-//            drawContours(src,approx,k[2],Scalar(255,0,0), 2);
-//            drawContours(src,approx,k[4],Scalar(0,0,255), 2);
+            //            drawContours(src,approx,k[0],Scalar(0,0,255), 2);
+            //            drawContours(src,approx,k[2],Scalar(255,0,0), 2);
+            //            drawContours(src,approx,k[4],Scalar(0,0,255), 2);
             Point centroid=getCentroid(approx[k[4]]);
             Rect rr=Rect(centroid-Point(2,2),centroid+Point(2,2));
             rectangle(src,rr,CV_RGB(255,255,255), CV_FILLED);
@@ -166,18 +177,28 @@ int main(int argc, char *argv[])
 
             //            rectangle(src,r,Scalar(0,255,0));
         }
-                line(src,centrs[0],centrs[1],Scalar(0,0,0),2);
-                line(src,centrs[1],centrs[2],Scalar(0,0,0),2);
+//        line(src,centrs[0],centrs[1],Scalar(0,0,0),2);
+//        line(src,centrs[1],centrs[2],Scalar(0,0,0),2);
 
-                line(video_mat,centrs[0],centrs[1],Scalar(0,0,0),2);
-                line(video_mat,centrs[1],centrs[2],Scalar(0,0,0),2);
+        line(video_mat,centrs[0],centrs[1],Scalar(0,0,0),2);
+        line(video_mat,centrs[1],centrs[2],Scalar(0,0,0),2);
+        line(video_mat,centrs[0],centrs[0]-Point(0,50),Scalar(0,0,200),2);
+
+        float ang1=angle(centrs[0]-centrs[1]);
+        float ang2=angle(centrs[2]-centrs[1]);
+        float ang3=angle(centrs[1]-centrs[0]);
+        ellipse(video_mat,centrs[1],Size(30,30),ang2-ang2,ang1,ang2,Scalar(0,0,200),3);
+        ellipse(video_mat,centrs[0],Size(30,30),0,ang3,-90,Scalar(0,0,200),3);
+
+//        ellipse(video_mat,centrs[1],Size(30,30),ang2-ang2,ang1,ang2,Scalar(0,0,200),3);
+//        ellipse(src,centrs[0],Size(30,30),0,ang3,-90,Scalar(0,0,200),3);
         //        qDebug()<<contours.size();
 
 #ifdef WRITING
         outputVideo << video_mat;
 #endif
 
-        imshow(c1,src);
+        imshow(c1,video_mat);
         if(waitKey(42) >= 0) break;
     }
 }
@@ -215,9 +236,7 @@ bool nested(vector<vector<Point>>& contours, vector<Vec4i>& hierarchy, int* k, i
         if(contours[k[i]].size()==v[i/2])
         {
             k[i+1]=hierarchy[k[i]][2];
-            if(k[1]!=-1)
-            {}
-            else
+            if(k[i+1]==-1)
                 return 0;
         }
         else
