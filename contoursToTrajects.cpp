@@ -13,7 +13,7 @@
 #include "detector.h"
 //#include <stdlib.h>
 
-#define WRITING
+//#define WRITING
 
 using namespace std;
 using namespace cv;
@@ -23,10 +23,13 @@ using namespace cv;
 QSlider *sl1, *sl2;
 int thresh = 200;
 int max_thresh = 255;
-Point centrs[3];
-
+Point centrs[3], centrs_buf[3];
+QVector<Point> centrH;
+vector<int> areas;
 
 CV_WRAP static int fcc=VideoWriter::fourcc('D','I','V','X');
+
+bool ratio(float x,float limit);
 
 float angle(Point p)
 {
@@ -57,6 +60,9 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata);
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
+    areas.resize(3);
+    for(int i=0;i<3;i++)
+        areas[i]=2400;
 
     int clr[100][3];
     for(int i=0;i<100;i++)
@@ -113,6 +119,8 @@ int main(int argc, char *argv[])
     //       true;
     //    qDebug()<<k;
     int cnt=0;
+
+    setMouseCallback(c1, CallBackFunc, NULL);
     for(;;) //Show the image captured in the window and repeat
     {
         //        qDebug()<<"hey";
@@ -122,7 +130,8 @@ int main(int argc, char *argv[])
         cvtColor(src,src_gray,CV_RGB2GRAY);
         cvtColor(src_gray, video_mat, CV_GRAY2BGR);
         //         cvtColor(dst,video_mat,CV_BGR2GRAY);
-        blur(src_gray,dst,Size(3, 3));
+        //        blur(src_gray,dst,Size(3, 3));
+        dst=src_gray;
         Canny(dst, dst, 130, 240, 3);
         //        threshold(dst,dst,sl1->value(),255,CV_THRESH_BINARY);
 
@@ -132,53 +141,83 @@ int main(int argc, char *argv[])
 
         vector<vector<Point>> approx;
         approx.resize(contours.size());
+
         for(int i=0;i<contours.size();i++)
         {
-            approxPolyDP(Mat(contours[i]), approx[i], arcLength(Mat(contours[i]), true)*0.07, true);//.026
+            approxPolyDP(Mat(contours[i]), approx[i], arcLength(Mat(contours[i]), true)*sl1->value()/2500., true);//.026
         }
 
+        centrH.resize(0);
         for(int i=0;i<approx.size();i++)
         {
 
             //            if (fabs(contourArea(approx[i])) < 200 || !isContourConvex(approx[i]) )
             //                continue;
             int k[6]={i,0,0,0,0,0};
-            int v1[3]={4,4,4};
-            int v2[3]={4,4,3};
-            int v3[3]={4,3,3};
+//            int v1[3]={4,4,6};
+            int v2[3]={4,3,3};
+            int v3[3]={4,4,5};
 
-            bool squre_label, triangle_label1, triangle_label2;
+//                         drawContours(video_mat,approx,i,Scalar(0,0,255), 1);
+
+            bool square_label, triangle_label1, triangle_label2;
             //skip the seldom bad situation
-            if(!(squre_label=nested(approx, hierarchy, k, v1))&&
+            if(/*!(square_label=nested(approx, hierarchy, k, v1))&&*/
                     !(triangle_label1=nested(approx, hierarchy, k, v2))&&
                     !(triangle_label2=nested(approx, hierarchy, k, v3)))
                 continue;
 
             cnt++;
             Rect r = boundingRect(approx[k[0]]);
-            //            drawContours(src,approx,k[0],Scalar(0,0,255), 2);
-            //            drawContours(src,approx,k[2],Scalar(255,0,0), 2);
-            //            drawContours(src,approx,k[4],Scalar(0,0,255), 2);
+
+            //            drawContours(video_mat,approx,k[0],Scalar(0,0,255), 2);
+            //            drawContours(video_mat,approx,k[2],Scalar(255,0,0), 2);
+            //            drawContours(video_mat,approx,k[4],Scalar(0,0,255), 2);
             Point centroid=getCentroid(approx[k[4]]);
             Rect rr=Rect(centroid-Point(2,2),centroid+Point(2,2));
             rectangle(src,rr,CV_RGB(255,255,255), CV_FILLED);
 
-            if(squre_label)
-                centrs[0]=centroid;
+            float limit=1.07;
+            float area=contourArea(approx[k[0]]);
+
+
+            if(square_label)
+            {
+//                if((ratio(area/areas[0],limit)))
+                {
+                    areas[0]=area;
+                    centrs[0]=centroid;
+                }
+
+            }
+
             //                setLabel(src, "square" , approx[i]);
 
             if(triangle_label1)
-                centrs[1]=centroid;
+            {
+//                if((ratio(area/areas[1],limit)))
+                {
+                    areas[1]=area;
+                    centrs[1]=centroid;
+                }
+            }
             //                setLabel(src, "triangle1" , approx[i]);
 
             if(triangle_label2)
-                centrs[2]=centroid;
+            {
+//                if((ratio(area/areas[2],limit)))
+                {
+                    areas[2]=area;
+                    centrs[2]=centroid;
+                }
+            }
+
             //                setLabel(src, "triangle2" , approx[i]);
 
             //            rectangle(src,r,Scalar(0,255,0));
         }
-//        line(src,centrs[0],centrs[1],Scalar(0,0,0),2);
-//        line(src,centrs[1],centrs[2],Scalar(0,0,0),2);
+        //        line(src,centrs[0],centrs[1],Scalar(0,0,0),2);
+        //        line(src,centrs[1],centrs[2],Scalar(0,0,0),2);
 
         line(video_mat,centrs[0],centrs[1],Scalar(0,0,0),2);
         line(video_mat,centrs[1],centrs[2],Scalar(0,0,0),2);
@@ -190,8 +229,8 @@ int main(int argc, char *argv[])
         ellipse(video_mat,centrs[1],Size(30,30),ang2-ang2,ang1,ang2,Scalar(0,0,200),3);
         ellipse(video_mat,centrs[0],Size(30,30),0,ang3,-90,Scalar(0,0,200),3);
 
-//        ellipse(video_mat,centrs[1],Size(30,30),ang2-ang2,ang1,ang2,Scalar(0,0,200),3);
-//        ellipse(src,centrs[0],Size(30,30),0,ang3,-90,Scalar(0,0,200),3);
+        //        ellipse(video_mat,centrs[1],Size(30,30),ang2-ang2,ang1,ang2,Scalar(0,0,200),3);
+        //        ellipse(src,centrs[0],Size(30,30),0,ang3,-90,Scalar(0,0,200),3);
         //        qDebug()<<contours.size();
 
 #ifdef WRITING
@@ -221,9 +260,9 @@ void setLabel(Mat& im, const string label, vector<Point >& contour)
 
 
 void CallBackFunc(int event, int x, int y, int flags, void* userdata){
-    if  ( event == EVENT_MBUTTONDOWN )
+    if  ( event == EVENT_LBUTTONDOWN )
     {
-        cout << "Middle button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
+        centrs[0]=Point(x,y);
     }
 }
 
@@ -231,10 +270,24 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata){
 //k[] - indexes of contours, v[] - criterias (numbers of vertices)
 bool nested(vector<vector<Point>>& contours, vector<Vec4i>& hierarchy, int* k, int* v)
 {
+    static int ca=0;
+    Point p[6],ph;
     for(int i=0;i<5;i++)
     {
         if(contours[k[i]].size()==v[i/2])
         {
+            if(contours[k[i]].size()==4)
+            {
+                p[i]=getCentroid(contours[k[i]]);
+            }
+            //            if(contours[k[i]].size()==4)
+            //            {
+            //                float a=angle(contours[k[i]][0]-contours[k[i]][1]);
+            //                float b=angle(contours[k[i]][3]-contours[k[i]][2]);
+            //                if(fabs(a-b)>7)
+            //                    return 0;
+            //            }
+
             k[i+1]=hierarchy[k[i]][2];
             if(k[i+1]==-1)
                 return 0;
@@ -242,6 +295,8 @@ bool nested(vector<vector<Point>>& contours, vector<Vec4i>& hierarchy, int* k, i
         else
             return 0;
     }
+
+
     return 1;
 }
 
@@ -261,6 +316,21 @@ void checkNestRatio(vector<vector<Point>>& contours, vector<Vec4i>& hierarchy, i
         k[i]=hierarchy[k[i]][2];
     }
 
+}
+
+bool ratio(float x,float limit)
+{
+    if(x>1)
+    {
+        if(x<limit)
+            return 1;
+    }
+    else
+    {
+        if(x>(1/limit))
+            return 1;
+    }
+    return 0;
 }
 
 Point getCentroid(vector<Point>& cont)
