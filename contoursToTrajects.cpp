@@ -101,6 +101,16 @@ int main(int argc, char *argv[])
     Mat dst, dst_norm, dst_norm_scaled;
     dst = Mat::zeros( src.size(), CV_32FC1 );
 
+//    qDebug()<<cap.get(CAP_PROP_FRAME_WIDTH );
+
+//    cap.set(CAP_PROP_FPS,9);
+//    cap.set(CAP_PROP_EXPOSURE ,4);
+
+    cap.set(CV_CAP_PROP_FRAME_WIDTH,1024);/*1280*/
+    cap.set(CV_CAP_PROP_FRAME_HEIGHT,720);/*720*/
+    qDebug()<<cap.get(CAP_PROP_FRAME_WIDTH );
+    qDebug()<<cap.get(CAP_PROP_FRAME_HEIGHT );
+    qDebug()<<cap.get(CAP_PROP_EXPOSURE );
     cap>>src;
 
 #ifdef WRITING
@@ -136,6 +146,7 @@ int main(int argc, char *argv[])
         //        threshold(dst,dst,sl1->value(),255,CV_THRESH_BINARY);
 
         //         Mat drawing = Mat::zeros( dst.size(), CV_8UC1 );
+//       if(0)
         findContours( dst, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE);
         cvtColor(dst,dst,CV_GRAY2BGR);
 
@@ -238,7 +249,7 @@ int main(int argc, char *argv[])
 #endif
 
         imshow(c1,video_mat);
-        if(waitKey(42) >= 0) break;
+        if(waitKey(42) >= 0) break;//42
     }
 }
 
